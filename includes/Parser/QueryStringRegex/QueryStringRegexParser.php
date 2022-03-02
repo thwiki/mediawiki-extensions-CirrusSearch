@@ -259,11 +259,26 @@ class QueryStringRegexParser implements QueryParser {
 	}
 
 	/**
+	 * Fix query string for unwanted word separation
+	 * @param string $rawQuery
+	 * @return string $fixedQuery
+	 */
+	public function fixQuery( string $query ) {
+		static $cjkRegex = '/(?<=^|\s)([\x{3041}-\x{3093}\x{30A1}-\x{30F6}\x{30FC}\x{4E00}-\x{62FF}\x{6300}-\x{77FF}\x{7800}-\x{8CFF}\x{8D00}-\x{9FFF}\x{3400}-\x{4DBF}\x{F900}-\x{FAFF}]+)(?=$|\s)/u';
+
+		$pos = strpos( $query, ':' );
+		if ( $pos === false ) return preg_replace( $cjkRegex, '"$1"', $query ) . "\n";
+		else return preg_replace( $cjkRegex, '"$1"', substr( $query, 0, $pos ) ) . substr( $query, $pos ). "\n";
+	}
+
+	/**
 	 * @param string $query
 	 * @return \CirrusSearch\Parser\AST\ParsedQuery
 	 * @throws SearchQueryParseException
 	 */
 	public function parse( string $query ): ParsedQuery {
+		$query = $this->fixQuery($query);
+
 		$this->reInit( $query );
 		$queryLen = mb_strlen( $query );
 		if ( $queryLen > self::QUERY_LEN_HARD_LIMIT ) {
