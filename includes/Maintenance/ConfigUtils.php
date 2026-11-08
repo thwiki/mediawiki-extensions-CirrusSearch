@@ -47,8 +47,11 @@ class ConfigUtils {
 		$version = $banner['version']['number'];
 		$this->output( "$distribution $version..." );
 
-		$required = $distribution === 'opensearch' ? '1.3' : '7.10';
-		if ( strpos( $version, $required ) !== 0 ) {
+		// [THBWiki 1.46] OpenSearch 2.x 走 ES7 兼容接口可用，放宽版本门禁（1.3 / 2.x）
+		$supported = $distribution === 'opensearch'
+			? ( strpos( $version, '1.3' ) === 0 || strpos( $version, '2.' ) === 0 )
+			: strpos( $version, '7.10' ) === 0;
+		if ( !$supported ) {
 			$this->output( "Not supported!\n" );
 			return Status::newFatal(
 				"Only OpenSearch 1.3.x is supported; Elasticsearch 7.10.x is now deprecated "

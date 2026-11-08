@@ -252,11 +252,33 @@ class QueryStringRegexParser implements QueryParser {
 	}
 
 	/**
+	 * Fix query string for unwanted word separation
+	 *
+	 * 1.39/REL1_39 的 CirrusSearch 会把连续 CJK（含日文假名）片段用双引号包成
+	 * 短语，使中文/日文按整段词而不是单字匹配；新版本移除了这段逻辑，导致
+	 * 中文查询的 totalhits 与生产站不一致（如「展会作品列表」生产 1 条、
+	 * 新版 1660 条）。这里按 1.39 的实现恢复，保持搜索语义一致。
+	 *
+	 * @param string $query
+	 * @return string
+	 */
+	public function fixQuery( string $query ) {
+		static $cjkRegex = '/(?<=^|\s)([\x{3041}-\x{3093}\x{30A1}-\x{30F6}\x{30FC}\x{4E00}-\x{62FF}\x{6300}-\x{77FF}\x{7800}-\x{8CFF}\x{8D00}-\x{9FFF}\x{3400}-\x{4DBF}\x{F900}-\x{FAFF}]+)(?=$|\s)/u';
+
+		$pos = strpos( $query, ':' );
+		if ( $pos === false ) {
+			return preg_replace( $cjkRegex, '"$1"', $query ) . "\n";
+		}
+		return preg_replace( $cjkRegex, '"$1"', substr( $query, 0, $pos ) ) . substr( $query, $pos ) . "\n";
+	}
+
+	/**
 	 * @param string $query
 	 * @return \CirrusSearch\Parser\AST\ParsedQuery
 	 * @throws SearchQueryParseException
 	 */
 	public function parse( string $query ): ParsedQuery {
+		$query = $this->fixQuery( $query );
 		$this->reInit( $query );
 		$queryLen = mb_strlen( $query );
 		if ( $queryLen > self::QUERY_LEN_HARD_LIMIT ) {
